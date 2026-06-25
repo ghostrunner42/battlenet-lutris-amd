@@ -81,10 +81,9 @@ script:
   wine:
     # Wine Staging is required — vanilla Wine and GE-Proton have known issues
     # with the Battle.net login flow on AMD/Mesa systems.
-    # Pinned to a known-good version. Lutris does not support dynamic "latest"
-    # resolution in installer scripts, so this should be bumped when a newer
-    # Wine Staging build is available in Lutris Runner Manager.
-    version: wine-11.11-staging-amd64
+    # No version pinned — Lutris will use the user's default Wine runner.
+    # Before installing, set your default Wine runner to Wine Staging in
+    # Lutris preferences: Runners > Wine > Manage versions > install staging.
     arch: win64
     battleye: false
     eac: false
