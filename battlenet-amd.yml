@@ -1,0 +1,94 @@
+name: Battle.net
+game_slug: battlenet
+version: AMD (Wine Staging)
+slug: battlenet-amd-wine-staging
+runner: wine
+
+script:
+  files:
+    - setup:
+        filename: Battle.net-Setup.exe
+        url: https://www.battle.net/download/getInstallerForGame?os=win&version=LIVE&gameProgram=BATTLENET_APP
+
+  game:
+    arch: win64
+    exe: drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe
+    prefix: $GAMEDIR
+
+  installer:
+    # Create a clean 64-bit Wine prefix
+    - task:
+        name: create_prefix
+        arch: win64
+        prefix: $GAMEDIR
+
+    # Disable locationapi — prevents crash on login screen (AMD/Mesa specific)
+    - task:
+        name: set_registry
+        prefix: $GAMEDIR
+        path: HKEY_CURRENT_USER\Software\Wine\DllOverrides
+        key: locationapi
+        value: ''
+        type: REG_SZ
+
+    # Set DXVA2 backend to VA-API for AMD hardware video decode
+    - task:
+        name: set_registry
+        prefix: $GAMEDIR
+        path: HKEY_CURRENT_USER\Software\Wine\DXVA2
+        key: backend
+        value: va
+        type: REG_SZ
+
+    # Write Battle.net client config:
+    # - Hardware acceleration off (causes blank/black screen on login)
+    # - Streaming and sound disabled (unnecessary overhead under Wine)
+    # - GameLaunchWindowBehavior: 2 = minimize to tray on game launch
+    - write_json:
+        file: $GAMEDIR/drive_c/users/$USER/AppData/Roaming/Battle.net/Battle.net.config
+        data:
+          Client:
+            HardwareAcceleration: 'false'
+            GameLaunchWindowBehavior: '2'
+            Sound:
+              Enabled: 'false'
+            Streaming:
+              StreamingEnabled: 'false'
+            GameSearch:
+              BackgroundSearch: 'true'
+            Install:
+              DownloadLimitNextPatchInBps: '0'
+
+    # Run the Battle.net installer
+    - task:
+        name: wineexec
+        executable: setup
+        arch: win64
+        prefix: $GAMEDIR
+
+  system:
+    env:
+      # Required for Wine Staging shared memory support
+      STAGING_SHARED_MEMORY: '1'
+      # DXVK shader cache — reduces stuttering on first launch
+      DXVK_STATE_CACHE_PATH: $GAMEDIR
+      __GL_SHADER_DISK_CACHE: '1'
+      __GL_SHADER_DISK_CACHE_PATH: $GAMEDIR
+      __GL_SHADER_DISK_CACHE_SKIP_CLEANUP: '1'
+    # Prevent Lutris from killing Battle.net background services on exit
+    exclude_processes: Agent.exe "Battle.net Helper.exe"
+
+  wine:
+    # Wine Staging is required — vanilla Wine and GE-Proton have known issues
+    # with the Battle.net login flow on AMD/Mesa systems.
+    # Pinned to a known-good version. Lutris does not support dynamic "latest"
+    # resolution in installer scripts, so this should be bumped when a newer
+    # Wine Staging build is available in Lutris Runner Manager.
+    version: wine-11.11-staging-amd64
+    arch: win64
+    battleye: false
+    eac: false
+    fsr: false
+    overrides:
+      # Critical: disabling locationapi prevents a crash on the login screen
+      locationapi: d
